@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <base target="_self">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="description" content="Pesquisas Diversas: pesquisa de telefones e leitor de códigos.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Pesquisas Diversas</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:Arial,sans-serif;background:#f1f4f9;color:#263445}
+    header{background:#1e3a5f;color:#fff;text-align:center;padding:22px 15px} header h1{margin:0;font-size:28px}
+    main{width:94%;max-width:900px;margin:30px auto;padding:24px;background:#fff;border-radius:12px;box-shadow:0 4px 18px #00000012}
+    h2{font-size:21px} h3{font-size:17px}.linha{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    label{font-weight:bold} input,select,textarea{padding:11px;border:1px solid #cbd5e1;border-radius:6px;font-size:15px;max-width:100%}
+    input[type=tel]{width:175px} input[type=search]{flex:1;min-width:180px}
+    button{padding:11px 15px;border:0;border-radius:6px;background:#2563eb;color:white;font-size:14px;cursor:pointer}
+    button:hover{background:#1d4ed8}button.secundario{background:#475569}button:disabled{opacity:.45;cursor:not-allowed}
+    .secao{margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0}.texto-secundario{color:#64748b;font-size:14px;line-height:1.5}
+    .mensagem{margin-top:12px;font-size:14px;line-height:1.6;overflow-wrap:anywhere}.erro{color:#dc2626}.sucesso{color:#15803d}
+    .lista{margin-top:15px;display:grid;gap:9px}.item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;flex-wrap:wrap}
+    .detalhes{display:flex;flex-direction:column;gap:5px}.numero{font-size:16px;font-weight:bold}.meta{font-size:12px;color:#64748b}
+    .acoes{display:flex;gap:7px;flex-wrap:wrap}.paginacao{display:flex;align-items:center;justify-content:center;gap:15px;margin-top:18px}
+    .tabela-wrapper{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}th,td{padding:9px;text-align:left;border-bottom:1px solid #e2e8f0}th{background:#f1f5f9}
+    #leitor{width:100%;max-width:520px;margin:14px auto}#leitor video{border-radius:8px}.painel{padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-top:12px}
+    .acoes-leitor{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.campo-largo{width:100%}.aviso{font-size:13px;color:#7c4a03;background:#fff7ed;padding:10px;border-radius:6px;line-height:1.5}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:Arial,sans-serif}
+    @media(max-width:480px){main{padding:16px;margin:18px auto}header h1{font-size:24px}.item{align-items:flex-start}.acoes{width:100%}}
+  </style>
+</head>
+<body>
+<header><h1>Pesquisas Diversas</h1></header>
+<main>
+  <p class="aviso" id="avisoConfig">Para conectar à planilha, configure o endereço do Apps Script no arquivo <strong>config.js</strong> antes de publicar.</p>
+  <section>
+    <div class="linha">
+      <label for="telefone">Telefone</label>
+      <input type="tel" id="telefone" placeholder="(00) 00000-0000" inputmode="numeric" autocomplete="off" maxlength="15">
+      <button type="button" id="btnPesquisar">Pesquisar</button>
+    </div>
+    <div id="mensagem" class="mensagem" role="status" aria-live="polite"></div>
+    <div id="resultado"></div>
+  </section>
+
+  <section class="secao">
+    <h2>Leitor de códigos, boletos, PIX e NF-e</h2>
+    <p class="texto-secundario">Use a câmera, envie uma imagem ou digite/cole o conteúdo. A leitura é feita no navegador.</p>
+    <div class="acoes-leitor">
+      <button type="button" id="iniciarCamera">Abrir câmera</button>
+      <button type="button" class="secundario" id="pararCamera">Parar câmera</button>
+      <label class="secundario" style="padding:11px 15px;border-radius:6px;color:white;background:#475569;cursor:pointer">
+        Enviar imagem <input type="file" id="imagemCodigo" accept="image/*" hidden>
+      </label>
+    </div>
+    <div id="leitor"></div>
+    <label for="codigoManual">Digite ou cole o código, linha digitável ou PIX Copia e Cola</label>
+    <textarea id="codigoManual" class="campo-largo" rows="3" placeholder="Cole aqui o código ou conteúdo..."></textarea>
+    <div class="acoes-leitor"><button type="button" id="analisarManual">Analisar conteúdo</button></div>
+    <div id="resultadoCodigo" class="painel" aria-live="polite">Nenhum código lido ainda.</div>
+    <p class="aviso">A leitura e a validação estrutural não comprovam pagamento, autenticidade de boleto, identidade do recebedor ou regularidade fiscal. Confira os dados no aplicativo do banco ou no site oficial do emissor antes de pagar ou abrir links.</p>
+  </section>
+
+  <section class="secao">
+    <h2>Telefones importados</h2>
+    <p class="texto-secundario">Escolha um número da planilha ou digite parte dele para filtrar a lista.</p>
+    <div class="linha">
+      <input type="search" id="filtro" placeholder="Filtrar por telefone ou DDD..." aria-label="Filtrar telefones">
+      <button type="button" id="btnFiltrar">Buscar na lista</button>
+      <button type="button" class="secundario" id="btnAtualizar">Atualizar</button>
+    </div>
+    <div id="resumoLista" class="texto-secundario" aria-live="polite">Carregando telefones...</div>
+    <div id="lista" class="lista"></div>
+    <div class="paginacao">
+      <button type="button" class="secundario" id="btnAnterior">Anterior</button>
+      <span id="paginaAtual" class="texto-secundario">Página 0 de 0</span>
+      <button type="button" class="secundario" id="btnProxima">Próxima</button>
+    </div>
+  </section>
+
+  <section class="secao">
+    <h2>Importar histórico de chamadas</h2>
+    <p class="texto-secundario">Selecione o CSV exportado do Android. Os números válidos serão adicionados à planilha sem repetir registros existentes.</p>
+    <input type="file" id="arquivo" accept=".csv,text/csv">
+    <button type="button" id="btnImportar">Importar chamadas</button>
+    <div id="statusImportacao" class="mensagem" role="status" aria-live="polite"></div>
+  </section>
+</main>
+<iframe name="apiFrame" id="apiFrame" title="Comunicação com a planilha" hidden></iframe>
+
+<script src="config.js"></script>
+<script>
+const telefone=document.getElementById("telefone"),mensagem=document.getElementById("mensagem"),resultado=document.getElementById("resultado");
+const filtro=document.getElementById("filtro"),lista=document.getElementById("lista"),resumoLista=document.getElementById("resumoLista");
+const LIMITE=50;let pagina=1,totalPaginas=0,requisicaoLista=0,scanner=null,scannerAtivo=false;
+const API_URL=(window.PD_CONFIG&&window.PD_CONFIG.API_URL)||"";
+function apiGet(acao,params={}){return new Promise((resolve,reject)=>{if(!API_URL){reject(Error("Configure a URL do Apps Script no arquivo config.js."));return;}const cb="pdcb_"+Date.now()+"_"+Math.floor(Math.random()*1e6);const script=document.createElement("script");const timer=setTimeout(()=>{cleanup();reject(Error("Tempo esgotado ao consultar a planilha."));},20000);function cleanup(){clearTimeout(timer);delete window[cb];script.remove();}window[cb]=data=>{cleanup();if(data&&data.erro)reject(Error(data.erro));else resolve(data);};script.onerror=()=>{cleanup();reject(Error("Falha ao conectar com o Apps Script. Confira a URL e a implantação."));};const q=new URLSearchParams({...params,acao,callback:cb});script.src=API_URL+"?"+q.toString();document.body.appendChild(script);});}
+function apiPost(acao,dados){return new Promise((resolve,reject)=>{if(!API_URL){reject(Error("Configure a URL do Apps Script no arquivo config.js."));return;}const frame=document.getElementById("apiFrame"),form=document.createElement("form");form.method="POST";form.action=API_URL;form.target="apiFrame";form.style.display="none";[["acao",acao],["dados",JSON.stringify(dados)]].forEach(([name,value])=>{const input=document.createElement("input");input.name=name;input.value=value;form.appendChild(input);});let timer=setTimeout(()=>{window.removeEventListener("message",onMessage);form.remove();reject(Error("A planilha não respondeu a tempo. Verifique a implantação do Apps Script."));},45000);function onMessage(event){if(!event.data||event.data.tipo!=="PESQUISAS_DIVERSAS_API")return;clearTimeout(timer);window.removeEventListener("message",onMessage);form.remove();const r=event.data.resultado;if(!r||!r.ok)reject(Error((r&&r.erro)||"Falha ao importar."));else resolve(r);}window.addEventListener("message",onMessage);document.body.appendChild(form);form.submit();});}
+
+function somenteNumeros(v){return String(v||"").replace(/\D/g,"").slice(0,11)}
+function formatarTelefone(v){const n=somenteNumeros(v);if(!n)return "";if(n.length<=2)return "("+n;const d=n.slice(0,2),r=n.slice(2);if(n.length<=10)return r.length<=4?`(${d}) ${r}`:`(${d}) ${r.slice(0,4)}-${r.slice(4)}`;return r.length<=5?`(${d}) ${r}`:`(${d}) ${r.slice(0,5)}-${r.slice(5)}`}
+telefone.addEventListener("input",()=>{telefone.value=formatarTelefone(telefone.value);mensagem.textContent="";resultado.replaceChildren()});
+
+function pesquisarGoogle(valor){const n=somenteNumeros(valor);if(n.length!==10&&n.length!==11){mensagem.className="mensagem erro";mensagem.textContent="Digite um telefone com DDD: 10 ou 11 dígitos.";telefone.focus();return}
+ telefone.value=formatarTelefone(n);const termo='telefone "'+telefone.value+'"';window.open("https://www.google.com/search?q="+encodeURIComponent(termo),"_blank","noopener,noreferrer");
+ mensagem.className="mensagem sucesso";mensagem.textContent="Pesquisa solicitada: "+termo;
+ apiGet("buscarTelefone",{valor:n}).then(mostrarResultados).catch(e=>{resultado.textContent="Erro ao consultar o histórico: "+e.message})}
+document.getElementById("btnPesquisar").addEventListener("click",()=>pesquisarGoogle(telefone.value));
+telefone.addEventListener("keydown",e=>{if(e.key==="Enter")pesquisarGoogle(telefone.value)});
+
+function mostrarResultados(registros){resultado.replaceChildren();const h=document.createElement("h3");h.textContent="Histórico de chamadas";resultado.appendChild(h);
+ if(!registros.length){const p=document.createElement("p");p.textContent="Nenhuma chamada encontrada na planilha.";resultado.appendChild(p);return}
+ const w=document.createElement("div");w.className="tabela-wrapper";const t=document.createElement("table"),thead=document.createElement("thead"),tr=document.createElement("tr");
+ ["Telefone","Data","Tipo","Duração"].forEach(x=>{const th=document.createElement("th");th.textContent=x;tr.appendChild(th)});thead.appendChild(tr);t.appendChild(thead);
+ const tb=document.createElement("tbody");registros.forEach(r=>{const row=document.createElement("tr");[r.telefone,r.data,r.tipo,r.duracao].forEach(v=>{const td=document.createElement("td");td.textContent=v||"—";row.appendChild(td)});tb.appendChild(row)});
+ t.appendChild(tb);w.appendChild(t);resultado.appendChild(w)}
+
+function carregarLista(novaPagina=1){const id=++requisicaoLista;pagina=novaPagina;resumoLista.textContent="Carregando telefones...";lista.replaceChildren();document.getElementById("btnAnterior").disabled=true;document.getElementById("btnProxima").disabled=true;
+ apiGet("listarTelefones",{filtro:filtro.value,pagina,limite:LIMITE}).then(r=>{if(id!==requisicaoLista)return;totalPaginas=r.paginas;pagina=r.pagina;resumoLista.textContent=r.total+" telefone(s) distinto(s) encontrado(s).";document.getElementById("paginaAtual").textContent="Página "+pagina+" de "+totalPaginas;
+ document.getElementById("btnAnterior").disabled=pagina<=1;document.getElementById("btnProxima").disabled=pagina>=totalPaginas||!totalPaginas;
+ if(!r.telefones.length){const p=document.createElement("p");p.className="texto-secundario";p.textContent="Nenhum telefone encontrado.";lista.appendChild(p);return}
+ r.telefones.forEach(item=>{const line=document.createElement("div");line.className="item";const d=document.createElement("div");d.className="detalhes";const n=document.createElement("span");n.className="numero";n.textContent=item.telefone;const m=document.createElement("span");m.className="meta";m.textContent=item.quantidade+(item.quantidade===1?" registro na planilha":" registros na planilha");d.append(n,m);
+ const a=document.createElement("div");a.className="acoes";const usar=document.createElement("button");usar.className="secundario";usar.textContent="Usar número";usar.onclick=()=>{telefone.value=item.telefone;mensagem.className="mensagem sucesso";mensagem.textContent="Telefone selecionado: "+item.telefone;window.scrollTo({top:0,behavior:"smooth"})};
+ const pesq=document.createElement("button");pesq.textContent="Pesquisar";pesq.onclick=()=>{telefone.value=item.telefone;pesquisarGoogle(item.numero);window.scrollTo({top:0,behavior:"smooth"})};a.append(usar,pesq);line.append(d,a);lista.appendChild(line)})}).catch(e=>{if(id===requisicaoLista)resumoLista.textContent="Não foi possível carregar os telefones: "+e.message})}
+document.getElementById("btnFiltrar").onclick=()=>carregarLista(1);filtro.addEventListener("keydown",e=>{if(e.key==="Enter")carregarLista(1)});
+document.getElementById("btnAtualizar").onclick=()=>carregarLista(pagina);document.getElementById("btnAnterior").onclick=()=>{if(pagina>1)carregarLista(pagina-1)};
+document.getElementById("btnProxima").onclick=()=>{if(pagina<totalPaginas)carregarLista(pagina+1)};
+
+function lerCSV(texto){texto=texto.replace(/^\uFEFF/,"");const primeira=texto.split(/\r?\n/,1)[0],sep=(primeira.match(/;/g)||[]).length>(primeira.match(/,/g)||[]).length?";":",";
+ const linhas=[];let linha=[],campo="",aspas=false;for(let i=0;i<texto.length;i++){const c=texto[i];if(c==='"'){if(aspas&&texto[i+1]==='"'){campo+='"';i++}else aspas=!aspas}
+ else if(c===sep&&!aspas){linha.push(campo);campo=""}else if((c==="\n"||c==="\r")&&!aspas){if(c==="\r"&&texto[i+1]==="\n")i++;linha.push(campo);if(linha.some(v=>v.trim()))linhas.push(linha);linha=[];campo=""}else campo+=c}
+ if(campo||linha.length){linha.push(campo);if(linha.some(v=>v.trim()))linhas.push(linha)}return linhas}
+function extrairNumero(v){let n=String(v||"").replace(/\D/g,"");if(n.startsWith("55")&&n.length===13)n=n.slice(2);return n.length===10||n.length===11?n:""}
+document.getElementById("btnImportar").onclick=async()=>{const file=document.getElementById("arquivo").files[0],status=document.getElementById("statusImportacao");status.className="mensagem";if(!file){status.className+=" erro";status.textContent="Selecione um arquivo CSV primeiro.";return}
+ try{const rows=lerCSV(await file.text());if(rows.length<2)throw Error("O CSV está vazio ou não contém registros.");const head=rows[0].map(v=>v.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""));
+ const idx=names=>head.findIndex(c=>names.some(n=>c.includes(n))),it=idx(["number","phone","telefone","numero","remote_number"]),id=idx(["date","data","timestamp","time"]),iy=idx(["type","tipo","call_type","direction"]),iu=idx(["duration","duracao","seconds"]),records=[];
+ rows.slice(1).forEach(row=>{let num=it>=0?extrairNumero(row[it]):"";if(!num)for(const v of row){num=extrairNumero(v);if(num)break}if(num)records.push({telefone:num,data:id>=0?row[id]||"":"",tipo:iy>=0?row[iy]||"":"",duracao:iu>=0?row[iu]||"":""})});
+ if(!records.length)throw Error("Nenhum telefone válido foi encontrado no CSV.");status.textContent="Importando "+records.length+" registros...";
+ apiPost("importarChamadas",records).then(r=>{status.className="mensagem sucesso";status.textContent="Importação concluída! "+r.importados+" novos; "+r.duplicados+" duplicados; "+r.invalidos+" inválidos ignorados.";carregarLista(1)}).catch(e=>{status.className="mensagem erro";status.textContent="Erro na importação: "+e.message})
+ }catch(e){status.className="mensagem erro";status.textContent=e.message}};
+
+// Leitor: câmera e arquivo são processados no próprio navegador via html5-qrcode.
+function mostrarCodigo(texto,origem){const area=document.getElementById("resultadoCodigo");const limpo=String(texto||"").trim();document.getElementById("codigoManual").value=limpo;const info=interpretarCodigo(limpo);
+ area.replaceChildren();const titulo=document.createElement("h3");titulo.textContent=info.tipo;area.appendChild(titulo);const p=document.createElement("p");p.textContent=info.resumo;area.appendChild(p);
+ const pre=document.createElement("pre");pre.textContent=info.detalhes+"\n\nConteúdo lido ("+origem+"):\n"+limpo;area.appendChild(pre);
+ if(info.url){const link=document.createElement("a");link.href=info.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Abrir endereço (somente após conferir o domínio)";area.appendChild(link)}
+}
+function interpretarCodigo(raw){const s=raw.trim(),digits=s.replace(/\D/g,"");
+ if(/^000201/.test(s)||/^00\d{2}01/.test(s)&&s.includes("br.gov.bcb.pix"))return analisarPix(s);
+ if(/https?:\/\//i.test(s)){const url=(s.match(/https?:\/\/[^\s]+/i)||[])[0];let tipo=/fazenda|sefaz|nfe/i.test(url)?"Possível consulta de NF-e":"QR Code com endereço da internet";return{tipo,resumo:"O código contém um endereço. Confira cuidadosamente o domínio antes de abrir.",detalhes:"Endereço identificado: "+url,url}}
+ if(digits.length===47)return{tipo:"Possível boleto — linha digitável",resumo:"Foram encontrados 47 dígitos, formato comum de linha digitável de boleto bancário.",detalhes:"Validação estrutural básica: "+(validarLinhaBoleto(digits)?"formato e dígitos verificadores compatíveis":"não foi possível confirmar os dígitos verificadores")+". Isso não confirma beneficiário, vencimento ou pagamento."};
+ if(digits.length===44){const nf=validarChaveNFe(digits);return{tipo:nf?"Possível chave de acesso de NF-e":"Código numérico de 44 dígitos",resumo:nf?"A sequência tem 44 dígitos e o dígito verificador da chave de NF-e confere.":"A sequência tem 44 dígitos. Pode ser código de barras de boleto ou chave de NF-e; confirme a origem.",detalhes:"Dígito verificador de chave NF-e: "+(nf?"compatível":"não confirmado")+". Para diferenciar, use o QR Code ou confira o documento de origem."}}
+ if([8,12,13,14].includes(digits.length))return{tipo:"Possível código de produto (GTIN/EAN/UPC)",resumo:"Comprimento compatível com um identificador comercial de produto.",detalhes:"Código: "+digits+". O leitor não consulta automaticamente cadastro comercial nem garante marca, fabricante ou autenticidade."};
+ if(/^https?:/i.test(s))return{tipo:"Endereço da internet",resumo:"Confira o endereço antes de abrir.",detalhes:s,url:s};
+ return{tipo:"QR Code ou código não classificado",resumo:"O conteúdo foi lido, mas não correspondeu com segurança a um dos formatos reconhecidos.",detalhes:"Verifique se a leitura está completa. Não compartilhe senhas, tokens ou dados pessoais."}}
+function analisarPix(s){const campos=[];let i=0;while(i+4<=s.length){const id=s.slice(i,i+2),len=parseInt(s.slice(i+2,i+4),10);if(!/^\d{2}$/.test(id)||!Number.isFinite(len)||len<0)break;const val=s.slice(i+4,i+4+len);if(val.length!==len)break;campos.push({id,val});i+=4+len}
+ const get=id=>{const x=campos.find(c=>c.id===id);return x?x.val:""};let nome="",cidade="",txid="";
+ const merchant=campos.find(c=>c.id==="26"||c.id==="27");if(merchant){let j=0,v=merchant.val;while(j+4<=v.length){const id=v.slice(j,j+2),len=parseInt(v.slice(j+2,j+4),10);if(!Number.isFinite(len))break;const val=v.slice(j+4,j+4+len);if(id==="名"){}if(id==="04")txid=val;j+=4+len}}
+ const m=campos.find(c=>c.id==="59");if(m)nome=m.val;const c=campos.find(c=>c.id==="60");if(c)cidade=c.val;const valor=get("54");
+ return{tipo:"PIX — QR Code ou Copia e Cola",resumo:"O conteúdo parece seguir o padrão BR Code/EMV usado em pagamentos PIX.",detalhes:"Recebedor indicado no conteúdo: "+(nome||"não identificado")+"\nCidade: "+(cidade||"não informada")+"\nValor: "+(valor||"não informado")+"\nTXID: "+(txid||"não identificado")+"\n\nConfira o nome, CPF/CNPJ, instituição e valor na tela do seu banco antes de confirmar. A leitura não realiza pagamento."}}
+function validarChaveNFe(n){if(!/^\d{44}$/.test(n))return false;let soma=0,peso=2;for(let i=42;i>=0;i--){soma+=Number(n[i])*peso;peso=peso===9?2:peso+1}const dv=11-(soma%11),esperado=dv===10||dv===11?0:dv;return esperado===Number(n[43])}
+function mod10(base){let soma=0,peso=2;for(let i=base.length-1;i>=0;i--){let x=Number(base[i])*peso;if(x>9)x-=9;soma+=x;peso=peso===2?1:2}return(10-(soma%10))%10}
+function validarLinhaBoleto(n){if(!/^\d{47}$/.test(n))return false;const d1=n.slice(0,9),d2=n.slice(10,20),d3=n.slice(21,31);if(mod10(d1)!==Number(n[9])||mod10(d2)!==Number(n[20])||mod10(d3)!==Number(n[31]))return false;
+ // O quarto dígito é o DV geral do código de barras; validação de módulo 11.
+ const barras=n.slice(0,4)+n.slice(32,47)+d1.slice(0,4)+d2+d3;let soma=0,peso=2;for(let i=barras.length-1;i>=0;i--){soma+=Number(barras[i])*peso;peso=peso===9?2:peso+1}let r=11-(soma%11);if(r===0||r===10||r===11)r=1;return r===Number(n[32])}
+async function iniciarCamera(){try{if(!window.Html5Qrcode)throw Error("A biblioteca de leitura não carregou. Verifique a conexão com a internet e atualize a página.");if(!scanner)scanner=new Html5Qrcode("leitor");
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Error("Este navegador não liberou acesso à câmera. Abra o aplicativo pelo endereço HTTPS do GitHub Pages e permita a câmera nas configurações do site.");
+ const cameras=await Html5Qrcode.getCameras();if(!cameras.length)throw Error("Nenhuma câmera foi encontrada. Confira se o celular possui câmera disponível.");const camera=cameras.find(c=>/back|traseira|environment/i.test(c.label))||cameras[cameras.length-1];
+ await scanner.start(camera.id,{fps:10,qrbox:{width:250,height:180},aspectRatio:1.5},txt=>{mostrarCodigo(txt,"câmera");pararCamera()},()=>{});scannerAtivo=true}catch(e){alert("Não foi possível iniciar a câmera: "+e.message)}}
+async function pararCamera(){if(scanner&&scannerAtivo){try{await scanner.stop()}catch(e){}scannerAtivo=false}}
+document.getElementById("iniciarCamera").onclick=iniciarCamera;document.getElementById("pararCamera").onclick=pararCamera;
+document.getElementById("imagemCodigo").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{if(!window.Html5Qrcode)throw Error("Biblioteca não carregada.");const leitor=new Html5Qrcode("leitor");const txt=await leitor.scanFile(file,true);mostrarCodigo(txt,"imagem enviada")}catch(err){alert("Não foi possível ler o código da imagem: "+err.message)}finally{e.target.value=""}});
+document.getElementById("analisarManual").onclick=()=>{const v=document.getElementById("codigoManual").value;if(!v.trim()){alert("Digite ou cole um código primeiro.");return}mostrarCodigo(v,"entrada manual")};
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("Service Worker não registrado:",e)));}
+carregarLista(1);
+</script>
+</body>
+</html>
